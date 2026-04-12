@@ -22,13 +22,6 @@ function setTitle(tabId, title) {
   chrome.action.setTitle({ tabId, title }, () => { chrome.runtime.lastError; });
 }
 
-// Push result to the content script running in the tab
-function pushToContentScript(tabId, payload) {
-  chrome.tabs.sendMessage(tabId, { type: "PHISHSHIELD_RESULT", ...payload }, () => {
-    chrome.runtime.lastError; // suppress "no listener" error if content script isn't ready
-  });
-}
-
 // ─── Main URL checker ────────────────────────────────────────────────────────
 async function checkURL(tabId, url) {
   console.log(`[PhishShield] Checking: ${url}`);
@@ -72,21 +65,14 @@ async function checkURL(tabId, url) {
       setIcon(tabId, "danger");
       setTitle(tabId, `PhishShield AI — ⚠️ PHISHING (${(probability * 100).toFixed(0)}%)`);
 
-      // Push danger result to content script first (brief flash before redirect)
-      pushToContentScript(tabId, { status: "danger", probability });
-
       // Redirect to blocked page
       const blockedUrl = chrome.runtime.getURL(
         `blocked.html?url=${encodeURIComponent(url)}&prob=${probability.toFixed(4)}`
       );
-      setTimeout(() => {
-        chrome.tabs.update(tabId, { url: blockedUrl }, () => { chrome.runtime.lastError; });
-      }, 300); // tiny delay so toast is visible
-
+      chrome.tabs.update(tabId, { url: blockedUrl }, () => { chrome.runtime.lastError; });
     } else {
       setIcon(tabId, "safe");
       setTitle(tabId, `PhishShield AI — ✅ Safe (${(probability * 100).toFixed(0)}% threat)`);
-      pushToContentScript(tabId, { status: "safe", probability });
     }
 
   } catch (err) {
@@ -94,7 +80,6 @@ async function checkURL(tabId, url) {
     tabStates[tabId] = { status: "safe", probability: null, url, error: true };
     setIcon(tabId, "safe");
     setTitle(tabId, "PhishShield AI — Server Offline");
-    pushToContentScript(tabId, { status: "offline", probability: null });
   }
 }
 
