@@ -1,5 +1,4 @@
 // PhishShield AI - Background Service Worker
-// Listens to every navigation and checks URL against the local PhishShield API
 
 const API_URL = "http://localhost:8000/predict";
 
@@ -9,46 +8,46 @@ const tabStates = {};
 // Track URLs the user has chosen to bypass
 const bypassedUrls = new Set();
 
-// Icons — MUST use string keys for chrome.action.setIcon
+// Icons — string keys required by chrome.action.setIcon
 const ICONS = {
-  safe: { "16": "icons/icon-safe-16.png", "48": "icons/icon-safe-48.png", "128": "icons/icon-safe-128.png" },
-  danger: { "16": "icons/icon-danger-16.png", "48": "icons/icon-danger-48.png", "128": "icons/icon-danger-128.png" },
+  safe:     { "16": "icons/icon-safe-16.png",     "48": "icons/icon-safe-48.png",     "128": "icons/icon-safe-128.png"     },
+  danger:   { "16": "icons/icon-danger-16.png",   "48": "icons/icon-danger-48.png",   "128": "icons/icon-danger-128.png"   },
   checking: { "16": "icons/icon-checking-16.png", "48": "icons/icon-checking-48.png", "128": "icons/icon-checking-128.png" }
 };
 
 function setIcon(tabId, state) {
-  chrome.action.setIcon({ tabId, path: ICONS[state] }, () => {
-    if (chrome.runtime.lastError) {
-      // Tab may have been closed — safe to ignore
-    }
-  });
+  chrome.action.setIcon({ tabId, path: ICONS[state] }, () => { chrome.runtime.lastError; });
 }
-
 function setTitle(tabId, title) {
-  chrome.action.setTitle({ tabId, title }, () => {
-    if (chrome.runtime.lastError) { /* tab closed, ignore */ }
+  chrome.action.setTitle({ tabId, title }, () => { chrome.runtime.lastError; });
+}
+
+// Push result to the content script running in the tab
+function pushToContentScript(tabId, payload) {
+  chrome.tabs.sendMessage(tabId, { type: "PHISHSHIELD_RESULT", ...payload }, () => {
+    chrome.runtime.lastError; // suppress "no listener" error if content script isn't ready
   });
 }
 
-// Check a URL against the PhishShield API
+// ─── Main URL checker ────────────────────────────────────────────────────────
 async function checkURL(tabId, url) {
   console.log(`[PhishShield] Checking: ${url}`);
 
-  // Skip internal browser pages
+  // Skip internal browser pages (no content script on these anyway)
   if (!url ||
       url.startsWith("chrome://") ||
       url.startsWith("chrome-extension://") ||
-      url.startsWith("about:") ||
       url.startsWith("edge://") ||
       url.startsWith("devtools://") ||
-      url === "about:blank") {
+      url === "about:blank" ||
+      url === "about:newtab") {
     tabStates[tabId] = { status: "safe", probability: 0, url };
     setIcon(tabId, "safe");
-    setTitle(tabId, "PhishShield AI — Internal Page");
+    setTitle(tabId, "PhishShield AI — Internal page");
     return;
   }
 
-  // Show checking state
+  // Set checking state
   tabStates[tabId] = { status: "checking", probability: null, url };
   setIcon(tabId, "checking");
   setTitle(tabId, "PhishShield AI — Analyzing...");
@@ -63,77 +62,93 @@ async function checkURL(tabId, url) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
-    const isPhishing = data.is_phishing;
-    const probability = data.probability;
+    const { is_phishing: isPhishing, probability } = data;
 
-    console.log(`[PhishShield] Result for ${url}: ${data.status} (${(probability * 100).toFixed(1)}%)`);
+    console.log(`[PhishShield] ${url} → ${data.status} (${(probability * 100).toFixed(1)}%)`);
 
-    tabStates[tabId] = {
-      status: isPhishing ? "danger" : "safe",
-      probability,
-      url
-    };
+    tabStates[tabId] = { status: isPhishing ? "danger" : "safe", probability, url };
 
     if (isPhishing) {
       setIcon(tabId, "danger");
       setTitle(tabId, `PhishShield AI — ⚠️ PHISHING (${(probability * 100).toFixed(0)}%)`);
 
-      // Build blocked page URL and redirect
+      // Push danger result to content script first (brief flash before redirect)
+      pushToContentScript(tabId, { status: "danger", probability });
+
+      // Redirect to blocked page
       const blockedUrl = chrome.runtime.getURL(
         `blocked.html?url=${encodeURIComponent(url)}&prob=${probability.toFixed(4)}`
       );
-      chrome.tabs.update(tabId, { url: blockedUrl }, () => {
-        if (chrome.runtime.lastError) {
-          console.warn("[PhishShield] Could not redirect tab:", chrome.runtime.lastError);
-        }
-      });
+      setTimeout(() => {
+        chrome.tabs.update(tabId, { url: blockedUrl }, () => { chrome.runtime.lastError; });
+      }, 300); // tiny delay so toast is visible
+
     } else {
       setIcon(tabId, "safe");
       setTitle(tabId, `PhishShield AI — ✅ Safe (${(probability * 100).toFixed(0)}% threat)`);
+      pushToContentScript(tabId, { status: "safe", probability });
     }
 
   } catch (err) {
-    // Server offline — fail open (don't block browsing)
     console.warn("[PhishShield] API unreachable:", err.message);
     tabStates[tabId] = { status: "safe", probability: null, url, error: true };
     setIcon(tabId, "safe");
     setTitle(tabId, "PhishShield AI — Server Offline");
+    pushToContentScript(tabId, { status: "offline", probability: null });
   }
 }
 
-// ─── Navigation Listener ───────────────────────────────────────────────────
-chrome.webNavigation.onCommitted.addListener((details) => {
-  // Only check top-level frame (not iframes)
-  if (details.frameId !== 0) return;
+// ─── Navigation Listeners ─────────────────────────────────────────────────────
 
-  // Skip our own blocked page to avoid redirect loops
-  if (details.url.startsWith(chrome.runtime.getURL("blocked.html"))) return;
+// PRIMARY: tabs.onUpdated fires reliably for every navigation including new tabs
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Wait until the page has started loading (we have the URL)
+  if (changeInfo.status !== "loading") return;
 
-  // Skip if user bypassed this URL
-  if (bypassedUrls.has(details.url)) {
-    tabStates[details.tabId] = { status: "safe", probability: null, url: details.url, bypassed: true };
-    setIcon(details.tabId, "safe");
-    setTitle(details.tabId, "PhishShield AI — Bypassed by user");
+  const url = tab.url || changeInfo.url;
+  if (!url) return;
+
+  // Skip our own blocked page
+  if (url.startsWith(chrome.runtime.getURL("blocked.html"))) return;
+
+  // Skip if user bypassed
+  if (bypassedUrls.has(url)) {
+    tabStates[tabId] = { status: "safe", probability: null, url, bypassed: true };
+    setIcon(tabId, "safe");
+    setTitle(tabId, "PhishShield AI — Bypassed by user");
     return;
   }
+
+  checkURL(tabId, url);
+});
+
+// BACKUP: also listen to onCommitted for cases tabs.onUpdated misses (e.g. pushState)
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (details.frameId !== 0) return;
+  if (details.url.startsWith(chrome.runtime.getURL("blocked.html"))) return;
+  if (bypassedUrls.has(details.url)) return;
+
+  // Only re-check if we don't already have a recent check for this URL
+  const existing = tabStates[details.tabId];
+  if (existing && existing.url === details.url && existing.status !== "checking") return;
 
   checkURL(details.tabId, details.url);
 });
 
-// ─── Message Handler (popup + blocked.html) ─────────────────────────────────
+// ─── Message Handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_STATE") {
-    const state = tabStates[message.tabId] || { status: "safe", probability: null, url: null };
-    sendResponse(state);
+    sendResponse(tabStates[message.tabId] || { status: "safe", probability: null, url: null });
     return true;
   }
 
   if (message.type === "BYPASS_URL") {
     bypassedUrls.add(message.url);
     chrome.tabs.update(message.tabId, { url: message.url }, () => {
+      chrome.runtime.lastError;
       sendResponse({ ok: true });
     });
-    return true; // keep channel open for async
+    return true;
   }
 });
 
