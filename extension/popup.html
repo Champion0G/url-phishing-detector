@@ -80,8 +80,24 @@
 
     .status-value.safe { color: var(--success); }
     .status-value.danger { color: var(--danger); }
-    .status-value.checking { color: #facc15; }
+    .status-value.checking { color: #facc15; animation: ps-pulse 1.2s ease-in-out infinite; }
     .status-value.offline { color: var(--muted); }
+
+    @keyframes ps-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    #ps-loader {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid rgba(250,204,21,0.3);
+      border-top-color: #facc15;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
 
     .url-box {
       background: rgba(255,255,255,0.03);
@@ -165,9 +181,12 @@
   <div class="body">
     <div class="status-row">
       <span class="status-icon" id="statusIcon">⏳</span>
-      <div>
+      <div style="flex:1">
         <div class="status-label">Current Tab Status</div>
-        <div class="status-value checking" id="statusValue">Analyzing...</div>
+        <div style="display:flex;align-items:center">
+          <div class="status-value checking" id="statusValue">Analyzing...</div>
+          <span id="ps-loader"></span>
+        </div>
       </div>
     </div>
 
