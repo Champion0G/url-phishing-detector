@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishShield | AI URL Guardian</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+
+    <div class="container">
+        <div class="glass-card">
+            <h1>PhishShield AI</h1>
+            <p class="subtitle">Enter a URL to check if it's safe or a phishing threat.</p>
+
+            <div class="input-group">
+                <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off">
+            </div>
+
+            <button id="analyzeBtn" onclick="analyzeURL()">
+                <div style="display: flex; align-items: center; justify-content: center;">
+                    <span>Analyze URL</span>
+                    <div id="loader" class="loader"></div>
+                </div>
+            </button>
+
+            <div id="resultArea" class="result-area">
+                <div id="statusBadge" class="status-badge">LEGIT</div>
+                <div class="probability-container">
+                    <div class="prob-label">
+                        <span>Threat Level</span>
+                        <span id="probValue">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                </div>
+                <p id="resultMsg" style="margin-top: 1.5rem; font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary);"></p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        SECURED BY ADVANCED AI MODEL
+    </footer>
+
+    <script>
+        async function analyzeURL() {
+            const urlInput = document.getElementById('urlInput');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loader = document.getElementById('loader');
+            const resultArea = document.getElementById('resultArea');
+            const statusBadge = document.getElementById('statusBadge');
+            const progressFill = document.getElementById('progressFill');
+            const probValue = document.getElementById('probValue');
+            const resultMsg = document.getElementById('resultMsg');
+
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            // Reset and Show Loader
+            analyzeBtn.disabled = true;
+            loader.style.display = 'inline-block';
+            resultArea.style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                if (!response.ok) throw new Error('Failed to analyze');
+
+                const data = await response.json();
+                
+                // Update UI
+                resultArea.style.display = 'block';
+                
+                const isPhishing = data.is_phishing;
+                const prob = data.probability; // probability of being phishing
+                const displayProb = (prob * 100).toFixed(1);
+
+                statusBadge.innerText = data.status;
+                statusBadge.className = 'status-badge ' + (isPhishing ? 'status-phishing' : 'status-legit');
+                
+                progressFill.className = 'progress-fill ' + (isPhishing ? 'fill-phishing' : 'fill-legit');
+                progressFill.style.width = displayProb + '%';
+                probValue.innerText = displayProb + '%';
+
+                if (isPhishing) {
+                    resultMsg.innerText = `⚠️ Danger! This URL shows strong characteristics of a phishing attempt. Avoid entering any sensitive information.`;
+                } else {
+                    resultMsg.innerText = `✅ This URL appears to be safe based on our AI model's analysis. However, always remain cautious.`;
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('An error occurred while analyzing the URL.');
+            } finally {
+                analyzeBtn.disabled = false;
+                loader.style.display = 'none';
+            }
+        }
+
+        // Add Enter key support
+        document.getElementById('urlInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                analyzeURL();
+            }
+        });
+    </script>
+</body>
+</html>
