@@ -1,99 +1,98 @@
 // PhishShield AI - Popup Script
+// Queries the API directly for the current tab URL — no background state relay needed.
+
+const API_URL = "http://localhost:8000/predict";
 
 function openDashboard() {
   chrome.tabs.create({ url: "http://localhost:8000" });
 }
 
-function updateUI(state) {
-  const statusIcon = document.getElementById("statusIcon");
+function updateUI({ status, probability, url }) {
+  const statusIcon  = document.getElementById("statusIcon");
   const statusValue = document.getElementById("statusValue");
-  const urlBox = document.getElementById("urlBox");
+  const urlBox      = document.getElementById("urlBox");
   const probSection = document.getElementById("probSection");
-  const probPct = document.getElementById("probPct");
-  const probFill = document.getElementById("probFill");
-  const loader = document.getElementById("ps-loader");
+  const probPct     = document.getElementById("probPct");
+  const probFill    = document.getElementById("probFill");
+  const loader      = document.getElementById("ps-loader");
 
-  // Display truncated URL
-  if (state.url) {
-    let displayUrl = state.url;
-    if (displayUrl.length > 60) displayUrl = displayUrl.substring(0, 57) + "...";
-    urlBox.textContent = displayUrl;
+  // URL display
+  if (url) {
+    urlBox.textContent = url.length > 60 ? url.substring(0, 57) + "..." : url;
   } else {
-    urlBox.textContent = "No URL to check";
+    urlBox.textContent = "No URL";
   }
 
-  const statusMap = {
-    safe:     { icon: "✅", text: "SAFE",            className: "safe"     },
-    danger:   { icon: "🚨", text: "PHISHING BLOCKED", className: "danger"   },
-    checking: { icon: "⏳", text: "Analyzing...",    className: "checking"  },
-    offline:  { icon: "⚠️", text: "Server Offline",  className: "offline"  }
+  const MAP = {
+    safe:     { icon: "✅", text: "SAFE",             cls: "safe"     },
+    danger:   { icon: "🚨", text: "PHISHING BLOCKED", cls: "danger"   },
+    checking: { icon: "⏳", text: "Analyzing...",     cls: "checking"  },
+    offline:  { icon: "⚠️", text: "Server Offline",  cls: "offline"  },
+    internal: { icon: "🔒", text: "Browser Page",    cls: "safe"     },
   };
 
-  const info = statusMap[state.status] || statusMap.offline;
-  statusIcon.textContent = info.icon;
+  const info = MAP[status] || MAP.offline;
+  statusIcon.textContent  = info.icon;
   statusValue.textContent = info.text;
-  statusValue.className = `status-value ${info.className}`;
+  statusValue.className   = `status-value ${info.cls}`;
 
-  // Hide spinner once we have a result
-  if (loader) loader.style.display = state.status === "checking" ? "inline-block" : "none";
+  // Spinner: hide once resolved
+  if (loader) loader.style.display = status === "checking" ? "inline-block" : "none";
 
   // Probability bar
-  if (state.probability !== null && state.probability !== undefined) {
+  if (probability !== null && probability !== undefined && status !== "internal") {
     probSection.style.display = "block";
-    const pct = (state.probability * 100).toFixed(1);
+    const pct = (probability * 100).toFixed(1);
     probPct.textContent = pct + "%";
-    // Animate bar
-    setTimeout(() => {
-      probFill.style.width = pct + "%";
-    }, 50);
-    probFill.className = `prob-fill ${state.status === "danger" ? "danger" : ""}`;
+    setTimeout(() => { probFill.style.width = pct + "%"; }, 50);
+    probFill.className = `prob-fill ${status === "danger" ? "danger" : ""}`;
   } else {
     probSection.style.display = "none";
   }
 }
 
-// ─── Poll until we have a resolved (non-checking) state ───────────────────────
-let pollTimer = null;
-
-function fetchState(tabId, tabUrl) {
-  chrome.runtime.sendMessage({ type: "GET_STATE", tabId }, (response) => {
-    if (chrome.runtime.lastError || !response) {
-      updateUI({ status: "offline", probability: null, url: tabUrl });
-      return;
-    }
-
-    updateUI(response);
-
-    // If still checking, poll again in 600ms
-    if (response.status === "checking") {
-      pollTimer = setTimeout(() => fetchState(tabId, tabUrl), 600);
-    }
-  });
-}
-
-// Cleanup poll timer when popup is closed
-window.addEventListener("unload", () => {
-  clearTimeout(pollTimer);
-});
-
-// Also listen for direct pushes from background (instant update when result arrives)
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "PHISHSHIELD_RESULT") {
-    clearTimeout(pollTimer); // stop polling — we got the answer
-    updateUI({
-      status: message.status,
-      probability: message.probability,
-      url: null // URL already shown, don't overwrite with null
-    });
-  }
-});
-
-// ─── Initialise ──────────────────────────────────────────────────────────────
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+// ─── Main: query API directly ─────────────────────────────────────────────────
+chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
   if (!tabs || tabs.length === 0) {
     updateUI({ status: "offline", probability: null, url: null });
     return;
   }
-  const tab = tabs[0];
-  fetchState(tab.id, tab.url);
+
+  const url = tabs[0].url || "";
+
+  // Still show the URL immediately
+  updateUI({ status: "checking", probability: null, url });
+
+  // Skip internal browser/extension pages
+  if (!url ||
+      url.startsWith("chrome://") ||
+      url.startsWith("chrome-extension://") ||
+      url.startsWith("edge://") ||
+      url.startsWith("devtools://") ||
+      url === "about:blank" ||
+      url === "about:newtab") {
+    updateUI({ status: "internal", probability: null, url });
+    return;
+  }
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const data = await resp.json();
+    updateUI({
+      status: data.is_phishing ? "danger" : "safe",
+      probability: data.probability,
+      url
+    });
+
+  } catch (err) {
+    console.warn("[PhishShield Popup] API error:", err.message);
+    updateUI({ status: "offline", probability: null, url });
+  }
 });
