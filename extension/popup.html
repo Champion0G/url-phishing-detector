@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhishShield AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --secondary: #a855f7;
+      --success: #10b981;
+      --danger: #ef4444;
+      --bg: #0f172a;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.1);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: var(--text);
+      width: 340px;
+      min-height: 200px;
+    }
+
+    .header {
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .header-icon { font-size: 1.4rem; }
+
+    .header-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-sub {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+
+    .body { padding: 1.25rem; }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .status-icon { font-size: 2rem; }
+
+    .status-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+
+    .status-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .status-value.safe { color: var(--success); }
+    .status-value.danger { color: var(--danger); }
+    .status-value.checking { color: #facc15; }
+    .status-value.offline { color: var(--muted); }
+
+    .url-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 1rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .prob-row {
+      margin-bottom: 1rem;
+    }
+
+    .prob-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .prob-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .prob-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--success);
+      transition: width 0.8s ease;
+    }
+
+    .prob-fill.danger { background: var(--danger); }
+
+    .open-btn {
+      width: 100%;
+      padding: 0.65rem;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .open-btn:hover { filter: brightness(1.1); }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-icon">🛡️</span>
+    <div>
+      <div class="header-title">PhishShield AI</div>
+      <div class="header-sub">Real-time Phishing Protection</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="status-row">
+      <span class="status-icon" id="statusIcon">⏳</span>
+      <div>
+        <div class="status-label">Current Tab Status</div>
+        <div class="status-value checking" id="statusValue">Analyzing...</div>
+      </div>
+    </div>
+
+    <div class="url-box" id="urlBox">Fetching current URL...</div>
+
+    <div class="prob-row" id="probSection" style="display: none;">
+      <div class="prob-label">
+        <span>Threat Probability</span>
+        <span id="probPct">—</span>
+      </div>
+      <div class="prob-bar">
+        <div class="prob-fill" id="probFill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <button class="open-btn" onclick="openDashboard()">Open Full Dashboard</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

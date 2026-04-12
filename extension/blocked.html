@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚠️ Phishing Detected — PhishShield AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --danger: #ef4444;
+      --danger-dark: #b91c1c;
+      --danger-glow: rgba(239, 68, 68, 0.4);
+      --bg: #0a0a0a;
+      --card: rgba(20, 0, 0, 0.85);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated scanlines overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(239, 68, 68, 0.03) 2px,
+        rgba(239, 68, 68, 0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-blob {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.18) 0%, transparent 70%);
+      border-radius: 50%;
+      filter: blur(60px);
+      z-index: 0;
+      animation: pulse 4s ease-in-out infinite;
+    }
+    .blob-1 { top: -150px; left: -150px; }
+    .blob-2 { bottom: -150px; right: -150px; animation-delay: 2s; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+
+    .card {
+      position: relative;
+      z-index: 10;
+      max-width: 620px;
+      width: 90%;
+      background: var(--card);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 24px;
+      padding: 3rem 2.5rem;
+      box-shadow: 0 0 60px rgba(239, 68, 68, 0.2), 0 8px 32px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    .shield-icon {
+      font-size: 5rem;
+      margin-bottom: 1rem;
+      display: block;
+      animation: shake 0.5s ease-in-out 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(0deg); }
+      20% { transform: rotate(-8deg); }
+      40% { transform: rotate(8deg); }
+      60% { transform: rotate(-5deg); }
+      80% { transform: rotate(5deg); }
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--danger);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 20px var(--danger-glow);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+
+    .url-box {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      word-break: break-all;
+      font-size: 0.85rem;
+      color: #fca5a5;
+      text-align: left;
+    }
+
+    .url-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+
+    .threat-bar-container {
+      margin-bottom: 2rem;
+      text-align: left;
+    }
+
+    .threat-bar-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .threat-bar-label span:last-child {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .threat-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .threat-fill {
+      height: 100%;
+      background: linear-gradient(to right, #f97316, #ef4444);
+      border-radius: 4px;
+      transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 0.9rem 1.5rem;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--danger);
+    }
+
+    .btn-safe {
+      background: linear-gradient(to right, #6366f1, #a855f7);
+      color: white;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-safe:hover {
+      filter: brightness(1.1);
+      transform: scale(1.02);
+    }
+
+    .footer-note {
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: rgba(148, 163, 184, 0.5);
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+
+  <div class="card">
+    <span class="shield-icon">🛡️</span>
+    <h1>Phishing Detected</h1>
+    <p class="subtitle">PhishShield AI has blocked this page to protect you from a potential attack.</p>
+
+    <div class="url-box">
+      <div class="url-label">Blocked URL</div>
+      <div id="blockedUrl">Loading...</div>
+    </div>
+
+    <div class="threat-bar-container">
+      <div class="threat-bar-label">
+        <span>Threat Level</span>
+        <span id="probDisplay">—</span>
+      </div>
+      <div class="threat-bar">
+        <div id="threatFill" class="threat-fill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-safe" onclick="goBack()">← Go Back to Safety</button>
+      <button class="btn btn-danger" onclick="proceedAnyway()">Proceed Anyway (Unsafe)</button>
+    </div>
+
+    <p class="footer-note">PROTECTED BY PHISHSHIELD AI · POWERED BY LIGHTGBM</p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get("url") || "Unknown URL";
+    const prob = parseFloat(params.get("prob") || "0");
+
+    document.getElementById("blockedUrl").textContent = url;
+
+    const displayPercent = (prob * 100).toFixed(1) + "%";
+    document.getElementById("probDisplay").textContent = displayPercent;
+
+    // Animate the bar after DOM is ready
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.getElementById("threatFill").style.width = displayPercent;
+      }, 200);
+    });
+
+    function goBack() {
+      history.go(-2); // Go back past the blocked page
+    }
+
+    function proceedAnyway() {
+      // Tell the background worker to bypass this URL, then it will navigate for us
+      chrome.tabs.getCurrent((tab) => {
+        const tabId = tab ? tab.id : null;
+        chrome.runtime.sendMessage(
+          { type: "BYPASS_URL", url: url, tabId },
+          () => {
+            // Background will navigate the tab; if not possible, navigate directly
+            if (!tabId) window.location.href = url;
+          }
+        );
+      });
+    }
+  </script>
+</body>
+</html>

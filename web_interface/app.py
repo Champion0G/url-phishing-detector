@@ -4,10 +4,20 @@ import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from scipy.sparse import hstack
 
 app = FastAPI(title="Phishing Detection API")
+
+# Allow requests from any origin (needed for browser extension)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load models
 MODEL_PATH = "phishlang_model.pkl"
@@ -37,9 +47,7 @@ async def predict(request: URLRequest):
         # Combine TF-IDF features with URL length
         final_vec = hstack([vec, url_len])
         
-        # Get probability from LightGBM
-        # prob = lgbm_model.predict_proba(final_vec)[0][1]
-        # Wait, lgbm_model is LightGBM, it should have predict_proba
+        # Get phishing probability from LightGBM
         prob = lgbm_model.predict_proba(final_vec)[0][1]
         
         # Define status based on threshold (0.9 as in the original script)

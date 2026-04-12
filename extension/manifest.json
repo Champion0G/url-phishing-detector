@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "PhishShield AI",
+  "version": "1.0",
+  "description": "Real-time phishing URL detection powered by AI. Automatically blocks dangerous sites before you interact with them.",
+  "permissions": [
+    "webNavigation",
+    "tabs",
+    "storage",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-safe-16.png",
+      "48": "icons/icon-safe-48.png",
+      "128": "icons/icon-safe-128.png"
+    },
+    "default_title": "PhishShield AI"
+  },
+  "icons": {
+    "16": "icons/icon-safe-16.png",
+    "48": "icons/icon-safe-48.png",
+    "128": "icons/icon-safe-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
