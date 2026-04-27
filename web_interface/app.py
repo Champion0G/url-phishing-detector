@@ -1,4 +1,5 @@
 import os
+import re
 import pickle
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -41,11 +42,17 @@ async def predict(request: URLRequest):
         url = request.url.lower().strip()
         
         # Preprocessing matching training script
-        vec = tfidf.transform([url])
-        url_len = [[len(url)]]
+        processed_url = re.sub(r'^https?:\/\/', '', url)
+        processed_url = re.sub(r'^www\.', '', processed_url)
         
-        # Combine TF-IDF features with URL length
-        final_vec = hstack([vec, url_len])
+        vec = tfidf.transform([processed_url])
+        u_len = len(processed_url)
+        d_count = sum(c.isdigit() for c in processed_url)
+        s_count = len(re.findall(r'[^a-zA-Z0-9]', processed_url))
+        lexical = [[u_len, d_count, s_count]]
+        
+        # Combine TF-IDF features with lexical features
+        final_vec = hstack([vec, lexical])
         
         # Get phishing probability from LightGBM
         prob = lgbm_model.predict_proba(final_vec)[0][1]

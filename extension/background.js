@@ -32,6 +32,10 @@ async function checkURL(tabId, url) {
       url.startsWith("chrome-extension://") ||
       url.startsWith("edge://") ||
       url.startsWith("devtools://") ||
+      url.startsWith("http://localhost") ||
+      url.startsWith("https://localhost") ||
+      url.startsWith("http://127.0.0.1") ||
+      url.startsWith("https://127.0.0.1") ||
       url === "about:blank" ||
       url === "about:newtab") {
     tabStates[tabId] = { status: "safe", probability: 0, url };

@@ -100,13 +100,21 @@ X_test_tfidf = tfidf.transform(X_test)
 
 from scipy.sparse import hstack
 
-# Get URL length values aligned with train/test
-X_train_len = df.loc[X_train.index, "url_length"].values.reshape(-1, 1)
-X_test_len = df.loc[X_test.index, "url_length"].values.reshape(-1, 1)
+def get_lexical_features(url_series):
+    features = []
+    for url in url_series:
+        u_len = len(url)
+        d_count = sum(c.isdigit() for c in url)
+        s_count = len(re.findall(r'[^a-zA-Z0-9]', url))
+        features.append([u_len, d_count, s_count])
+    return np.array(features)
 
-# Combine TF-IDF features with URL length
-X_train_final = hstack([X_train_tfidf, X_train_len])
-X_test_final = hstack([X_test_tfidf, X_test_len])
+X_train_lexical = get_lexical_features(X_train)
+X_test_lexical = get_lexical_features(X_test)
+
+# Combine TF-IDF features with all 3 lexical features
+X_train_final = hstack([X_train_tfidf, X_train_lexical])
+X_test_final = hstack([X_test_tfidf, X_test_lexical])
 
 
 # In[10]:
@@ -162,8 +170,11 @@ def predict_url(url, threshold=0.9):
     url = url.lower().strip()
 
     vec = tfidf.transform([url])
-    length = [[len(url)]]
-    final_vec = hstack([vec, length])
+    u_len = len(url)
+    d_count = sum(c.isdigit() for c in url)
+    s_count = len(re.findall(r'[^a-zA-Z0-9]', url))
+    lexical = [[u_len, d_count, s_count]]
+    final_vec = hstack([vec, lexical])
 
     prob = lgbm_model.predict_proba(final_vec)[0][1]
 
